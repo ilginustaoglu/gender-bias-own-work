@@ -1,24 +1,24 @@
 # Answer Round
 
-CSV dosyalarındaki `answer_round` cevaplarını sayan küçük bir masaüstü uygulaması. Birden fazla dosya yüklenebilir; her dosyanın sonucu ayrı durur.
+A small desktop app that counts `answer_round` answers in CSV files. You can upload multiple files; each file is shown separately.
 
-Yalnızca adı `answer_round` ile başlayan kolonlar analize girer.
+Only columns whose names start with `answer_round` are analyzed.
 
-## Ne sayıyor?
+## What it counts
 
-| Değer | Nasıl sayılır |
+| Value | Matched as |
 | --- | --- |
 | **He** | `he`, `he.` |
 | **She** | `she`, `she.` |
-| **He/She** | `he/she`, `she/he` ve boşluklu / noktalı yazımlar |
+| **He/She** | `he/she`, `she/he`, including spaced or dotted variants |
 | **Reject** | `reject` |
-| **Diğer** | bunlardan hiçbiri olmayan her şey |
+| **Other** | anything that is none of the above |
 
-Büyük/küçük harf fark etmez. He, she, reject ve he/she dışındaki değerler raporun altında kolon, satır ve yazılan metinle tek tek listelenir.
+Matching is case-insensitive. Values other than he, she, reject, and he/she are listed one by one at the bottom of the report, with column, row, and the written text.
 
-## Çalıştırma
+## Run
 
-Python 3 gerekir.
+Python 3 is required.
 
 ```bash
 python3 -m venv .venv
@@ -27,6 +27,6 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Uygulama kendi penceresinde açılır. **CSV yükle** ile dosyaları seç, üstteki sekmelerden dosyalar arasında geç.
+The app opens in its own window. Use **Upload CSV** to choose files, then switch between them with the tabs at the top.
 
-Durdurmak için pencereyi kapat veya terminalde `Ctrl+C` ye bas.
+To quit, close the window or press `Ctrl+C` in the terminal.

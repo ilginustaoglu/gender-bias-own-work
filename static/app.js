@@ -33,7 +33,7 @@ fileInput.addEventListener("change", async (event) => {
   const response = await fetch("/analyze", { method: "POST", body: form });
   const data = await response.json();
   if (!response.ok) {
-    applyPayload({ error: data.error || "Analiz başarısız." });
+    applyPayload({ error: data.error || "Analysis failed." });
     return;
   }
   applyPayload(data);
@@ -105,14 +105,14 @@ function renderActive() {
   emptyState.hidden = true;
   resultsEl.hidden = false;
 
-  fileMeta.textContent = `${result.column_count} answer_round kolonu · ${result.row_count} satır · ${result.total} değer`;
+  fileMeta.textContent = `${result.column_count} answer_round columns · ${result.row_count} rows · ${result.total} values`;
 
   const labels = [
     ["he", "He", result.counts.he],
     ["she", "She", result.counts.she],
     ["he_she", "He/She", result.counts.he_she || 0],
     ["reject", "Reject", result.counts.reject],
-    ["other", "Diğer", result.counts.other],
+    ["other", "Other", result.counts.other],
   ];
 
   statsEl.innerHTML = labels
@@ -126,10 +126,10 @@ function renderActive() {
     )
     .join("");
 
-  othersCount.textContent = `${result.others.length} kayıt`;
+  othersCount.textContent = `${result.others.length} entries`;
   othersList.innerHTML = renderItems(
     result.others,
-    "Bu dosyada he / she / reject / he/she dışında değer yok."
+    "This file has no values other than he / she / reject / he/she."
   );
 }
 
@@ -139,12 +139,12 @@ function renderItems(items, emptyText) {
   }
   return items
     .map((item) => {
-      const display = item.value ? item.value : "(boş)";
+      const display = item.value ? item.value : "(empty)";
       const emptyClass = item.value ? "" : " empty";
       return `
         <article class="other-item">
           <div class="col">${escapeHtml(item.column)}</div>
-          <div class="row">satır ${item.row}</div>
+          <div class="row">row ${item.row}</div>
           <div class="val${emptyClass}">${escapeHtml(display)}</div>
         </article>`;
     })

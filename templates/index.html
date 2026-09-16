@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Answer Round Analizi</title>
+    <title>Answer Round Analysis</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <header class="topbar">
       <div>
-        <p class="eyebrow">CSV analizi</p>
+        <p class="eyebrow">CSV analysis</p>
         <h1>Answer Round</h1>
       </div>
       <label class="upload">
         <input id="file-input" type="file" accept=".csv" multiple />
-        <span>CSV yükle</span>
+        <span>Upload CSV</span>
       </label>
     </header>
 
@@ -22,11 +22,12 @@
 
     <main>
       <section id="empty-state" class="empty">
-        <h2>Dosya seçin</h2>
+        <h2>Choose files</h2>
         <p>
-          Birden fazla CSV yükleyin. Yalnızca
-          <code>answer_round</code> ile başlayan kolonlar sayılır: he, she, reject
-          ve diğerleri. Standart olmayan değerler dosya bazında, en altta tek tek listelenir.
+          Upload one or more CSV files. Only columns that start with
+          <code>answer_round</code> are counted: he, she, reject, he/she, and
+          everything else. Non-standard values are listed one by one at the
+          bottom, separately for each file.
         </p>
       </section>
 
@@ -35,7 +36,7 @@
         <div class="stats" id="stats"></div>
         <section class="others-wrap">
           <div class="others-head">
-            <h2>He / she / reject / he/she yazmayan kolonlar</h2>
+            <h2>Columns that are not he / she / reject / he/she</h2>
             <p id="others-count"></p>
           </div>
           <div id="others-list"></div>

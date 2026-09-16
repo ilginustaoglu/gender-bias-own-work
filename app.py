@@ -35,7 +35,7 @@ def _read_csv_bytes(raw: bytes) -> tuple[list[str], list[dict[str, str]]]:
     text = _decode(raw)
     reader = csv.DictReader(io.StringIO(text))
     if not reader.fieldnames:
-        raise ValueError("CSV başlık satırı bulunamadı.")
+        raise ValueError("CSV header row was not found.")
     columns = [name for name in reader.fieldnames if name is not None]
     rows = [{key: (row.get(key) or "") for key in columns} for row in reader]
     return columns, rows
@@ -90,14 +90,14 @@ def index():
 def analyze():
     files = request.files.getlist("files")
     if not files:
-        return jsonify({"error": "CSV dosyası yüklenmedi."}), 400
+        return jsonify({"error": "No CSV file was uploaded."}), 400
 
     results = []
     errors = []
     for file in files:
-        name = file.filename or "isimsiz.csv"
+        name = file.filename or "untitled.csv"
         if not name.lower().endswith(".csv"):
-            errors.append({"filename": name, "error": "Yalnızca CSV dosyaları kabul edilir."})
+            errors.append({"filename": name, "error": "Only CSV files are accepted."})
             continue
         try:
             columns, rows = _read_csv_bytes(file.read())
@@ -106,7 +106,7 @@ def analyze():
             errors.append({"filename": name, "error": str(exc)})
 
     if not results and errors:
-        return jsonify({"error": "Hiçbir dosya analiz edilemedi.", "details": errors}), 400
+        return jsonify({"error": "No files could be analyzed.", "details": errors}), 400
 
     return jsonify({"results": results, "errors": errors})
 
@@ -131,7 +131,7 @@ def _wait_for_server(url: str, timeout: float = 5.0) -> None:
             return
         except (urllib.error.URLError, OSError):
             time.sleep(0.05)
-    raise RuntimeError("Uygulama penceresi açılamadı.")
+    raise RuntimeError("The application window could not be opened.")
 
 
 class DesktopApi:
@@ -140,11 +140,11 @@ class DesktopApi:
 
     def pick_and_analyze(self) -> dict[str, Any]:
         if self.window is None:
-            return {"error": "Pencere hazır değil."}
+            return {"error": "The window is not ready."}
         paths = self.window.create_file_dialog(
             webview.FileDialog.OPEN,
             allow_multiple=True,
-            file_types=("CSV dosyaları (*.csv)",),
+            file_types=("CSV files (*.csv)",),
         )
         if not paths:
             return {"results": [], "errors": [], "cancelled": True}
@@ -154,7 +154,7 @@ class DesktopApi:
         for path in paths:
             name = os.path.basename(path)
             if not name.lower().endswith(".csv"):
-                errors.append({"filename": name, "error": "Yalnızca CSV dosyaları kabul edilir."})
+                errors.append({"filename": name, "error": "Only CSV files are accepted."})
                 continue
             try:
                 results.append(analyze_path(path))
@@ -162,7 +162,7 @@ class DesktopApi:
                 errors.append({"filename": name, "error": str(exc)})
 
         if not results and errors:
-            return {"error": "Hiçbir dosya analiz edilemedi.", "details": errors}
+            return {"error": "No files could be analyzed.", "details": errors}
         return {"results": results, "errors": errors}
 
 
