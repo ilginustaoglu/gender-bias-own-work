@@ -7,6 +7,7 @@ const fileMeta = document.getElementById("file-meta");
 const othersCount = document.getElementById("others-count");
 const othersList = document.getElementById("others-list");
 const uploadLabel = document.querySelector(".upload");
+const exportPdfBtn = document.getElementById("export-pdf");
 
 let results = [];
 let activeIndex = 0;
@@ -38,6 +39,55 @@ fileInput.addEventListener("change", async (event) => {
   }
   applyPayload(data);
 });
+
+exportPdfBtn.addEventListener("click", exportActivePdf);
+
+async function exportActivePdf() {
+  if (!results.length) return;
+  const result = results[activeIndex];
+  exportPdfBtn.disabled = true;
+  document.querySelectorAll(".error").forEach((node) => node.remove());
+
+  try {
+    if (desktopReady && window.pywebview?.api?.export_pdf) {
+      const data = await window.pywebview.api.export_pdf(result);
+      if (!data || data.cancelled) return;
+      if (data.error) showError(data.error);
+      return;
+    }
+
+    const response = await fetch("/export-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(result),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      showError(data.error || "PDF export failed.");
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = pdfName(result.filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showError(err?.message || "PDF export failed.");
+  } finally {
+    exportPdfBtn.disabled = false;
+  }
+}
+
+function pdfName(csvName) {
+  const stem = String(csvName || "report").replace(/\.[^.]+$/, "");
+  const safe = stem.replace(/[^\w.\-]+/g, "_").replace(/^[._]+|[._]+$/g, "") || "report";
+  return `${safe}.pdf`;
+}
 
 function applyPayload(data) {
   if (!data || data.cancelled) return;

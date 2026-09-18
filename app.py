@@ -12,8 +12,10 @@ import urllib.request
 from typing import Any
 
 import webview
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file
 from werkzeug.serving import make_server
+
+from pdf_report import build_report_pdf, pdf_filename
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
@@ -111,6 +113,23 @@ def analyze():
     return jsonify({"results": results, "errors": errors})
 
 
+@app.post("/export-pdf")
+def export_pdf():
+    result = request.get_json(silent=True)
+    if not isinstance(result, dict):
+        return jsonify({"error": "No report data was provided."}), 400
+    try:
+        pdf_bytes = build_report_pdf(result)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)}), 400
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=pdf_filename(str(result.get("filename") or "report")),
+    )
+
+
 def analyze_path(path: str) -> dict[str, Any]:
     with open(path, "rb") as handle:
         columns, rows = _read_csv_bytes(handle.read())
@@ -164,6 +183,32 @@ class DesktopApi:
         if not results and errors:
             return {"error": "No files could be analyzed.", "details": errors}
         return {"results": results, "errors": errors}
+
+    def export_pdf(self, result: dict[str, Any]) -> dict[str, Any]:
+        if self.window is None:
+            return {"error": "The window is not ready."}
+        if not isinstance(result, dict):
+            return {"error": "No report data was provided."}
+
+        suggested = pdf_filename(str(result.get("filename") or "report"))
+        paths = self.window.create_file_dialog(
+            webview.FileDialog.SAVE,
+            save_filename=suggested,
+            file_types=("PDF files (*.pdf)",),
+        )
+        if not paths:
+            return {"cancelled": True}
+
+        path = paths[0] if isinstance(paths, (list, tuple)) else paths
+        if not str(path).lower().endswith(".pdf"):
+            path = f"{path}.pdf"
+
+        try:
+            with open(path, "wb") as handle:
+                handle.write(build_report_pdf(result))
+        except Exception as exc:  # noqa: BLE001
+            return {"error": str(exc)}
+        return {"ok": True, "path": path}
 
 
 def run_desktop() -> None:
