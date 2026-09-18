@@ -94,6 +94,14 @@ def pdf_filename(csv_name: str) -> str:
     return f"{safe or 'report'}.pdf"
 
 
+def interpretation_pdf_filename(sources: list[str] | None = None) -> str:
+    if sources and len(sources) == 1:
+        stem = os.path.splitext(os.path.basename(sources[0]))[0]
+        safe = re.sub(r"[^\w.\-]+", "_", stem, flags=re.UNICODE).strip("._")
+        return f"interpretation_{safe or 'report'}.pdf"
+    return "interpretation_report.pdf"
+
+
 def _xml(value: Any) -> str:
     return (
         str(value)
@@ -512,6 +520,102 @@ def build_report_pdf(result: dict[str, Any]) -> bytes:
 
     def on_page(canvas, doc_obj) -> None:
         _draw_page(canvas, doc_obj, filename)
+
+    doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
+    return buffer.getvalue()
+
+
+def _meta_block(rows: list[list[str]], usable: float, styles: dict[str, ParagraphStyle]) -> Table:
+    data = [
+        [
+            Paragraph(_xml(label), styles["meta_label"]),
+            Paragraph(_xml(value), styles["meta_value"]),
+        ]
+        for label, value in rows
+    ]
+    table = Table(data, colWidths=[usable * 0.32, usable * 0.68])
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LINEBELOW", (0, 0), (-1, -2), 0.3, LINE),
+                ("LINEBELOW", (0, -1), (-1, -1), 0.6, RULE),
+                ("LINEABOVE", (0, 0), (-1, 0), 0.6, RULE),
+            ]
+        )
+    )
+    return table
+
+
+def build_interpretation_pdf(report: dict[str, Any]) -> bytes:
+    if not isinstance(report, dict):
+        raise ValueError("Report data is missing.")
+
+    _register_fonts()
+    styles = _styles()
+    title = str(report.get("title") or "Interpretation Report")
+    sources = report.get("sources") or []
+    if not isinstance(sources, list):
+        sources = []
+    source_text = ", ".join(str(name) for name in sources) or "Uploaded reports"
+    model = str(report.get("model") or "llama3.1")
+    sections = report.get("sections") or []
+    if not isinstance(sections, list):
+        sections = []
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=20 * mm,
+        rightMargin=20 * mm,
+        topMargin=20 * mm,
+        bottomMargin=20 * mm,
+        title=title,
+        author="Answer Round",
+    )
+    usable = A4[0] - doc.leftMargin - doc.rightMargin - FRAME_PADDING
+    story: list[Any] = [
+        Paragraph(_xml(title), styles["title"]),
+        Paragraph(
+            "This note comments on Answer Round count reports using the local "
+            "Llama 3.1 model. It is a reading of the submitted figures, not a "
+            "substitute for them.",
+            styles["intro"],
+        ),
+        _meta_block(
+            [
+                ["Source reports", source_text],
+                ["Date", date.today().strftime("%d %B %Y")],
+                ["Model", model],
+            ],
+            usable,
+            styles,
+        ),
+    ]
+
+    numbered = 0
+    for item in sections:
+        if not isinstance(item, dict):
+            continue
+        heading = str(item.get("heading") or "").strip()
+        body = str(item.get("body") or "").strip()
+        if not body:
+            continue
+        numbered += 1
+        label = heading or "Note"
+        story.append(Paragraph(f"{numbered}. {_xml(label)}", styles["heading"]))
+        story.append(Paragraph(_xml_flow(body), styles["body"]))
+
+    if numbered == 0:
+        story.append(Paragraph("No interpretation text was produced.", styles["body"]))
+
+    def on_page(canvas, doc_obj) -> None:
+        _draw_page(canvas, doc_obj, "Interpretation Report")
 
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
     return buffer.getvalue()

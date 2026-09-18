@@ -51,6 +51,71 @@ h1 {
   font-weight: 600;
 }
 
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+a.action {
+  text-decoration: none;
+}
+
+.upload.is-busy {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: wait;
+}
+
+.status {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+.interp-title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.interp-body {
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.interp-section {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 14px;
+  margin: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.interp-section:last-child {
+  border-bottom: 0;
+}
+
+.interp-kicker {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.interp-section h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.interp-section p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
 .upload,
 .action {
   display: inline-flex;
@@ -141,8 +206,8 @@ code {
   margin-bottom: 20px;
 }
 
-.results-toolbar .meta {
-  margin-bottom: 0;
+.results-toolbar .interp-title {
+  margin: 0;
 }
 
 .meta {

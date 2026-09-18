@@ -13,9 +13,16 @@ from typing import Any
 
 import webview
 from flask import Flask, jsonify, render_template, request, send_file
+from pypdf import PdfReader
 from werkzeug.serving import make_server
 
-from pdf_report import build_report_pdf, pdf_filename
+from ollama_client import interpret_reports
+from pdf_report import (
+    build_interpretation_pdf,
+    build_report_pdf,
+    interpretation_pdf_filename,
+    pdf_filename,
+)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
@@ -88,6 +95,11 @@ def index():
     return render_template("index.html")
 
 
+@app.get("/interpret")
+def interpret_page():
+    return render_template("interpret.html")
+
+
 @app.post("/analyze")
 def analyze():
     files = request.files.getlist("files")
@@ -127,6 +139,72 @@ def export_pdf():
         mimetype="application/pdf",
         as_attachment=True,
         download_name=pdf_filename(str(result.get("filename") or "report")),
+    )
+
+
+def extract_pdf_text(raw: bytes, filename: str) -> str:
+    try:
+        reader = PdfReader(io.BytesIO(raw))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"{filename}: this file could not be read as a PDF.") from exc
+    pages = [(page.extract_text() or "") for page in reader.pages]
+    text = "\n".join(pages).strip()
+    if not text:
+        raise ValueError(f"{filename}: no text could be read from this PDF.")
+    return text
+
+
+def _reports_from_uploads(files) -> list[dict[str, str]]:
+    reports = []
+    errors = []
+    for file in files:
+        name = file.filename or "untitled.pdf"
+        if not name.lower().endswith(".pdf"):
+            errors.append({"filename": name, "error": "Only PDF reports are accepted."})
+            continue
+        try:
+            reports.append({"filename": name, "text": extract_pdf_text(file.read(), name)})
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"filename": name, "error": str(exc)})
+    if not reports:
+        raise ValueError(
+            errors[0]["error"] if errors else "No PDF reports were uploaded."
+        )
+    return reports
+
+
+@app.post("/interpret-reports")
+def interpret_reports_http():
+    try:
+        if request.files:
+            reports = _reports_from_uploads(request.files.getlist("files"))
+        else:
+            payload = request.get_json(silent=True) or {}
+            reports = payload.get("files")
+            if not isinstance(reports, list) or not reports:
+                return jsonify({"error": "No PDF report was uploaded."}), 400
+        result = interpret_reports(reports)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(result)
+
+
+@app.post("/export-interpretation")
+def export_interpretation():
+    result = request.get_json(silent=True)
+    if not isinstance(result, dict):
+        return jsonify({"error": "No interpretation was provided."}), 400
+    try:
+        pdf_bytes = build_interpretation_pdf(result)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)}), 400
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=interpretation_pdf_filename(
+            [str(name) for name in (result.get("sources") or []) if name]
+        ),
     )
 
 
@@ -206,6 +284,65 @@ class DesktopApi:
         try:
             with open(path, "wb") as handle:
                 handle.write(build_report_pdf(result))
+        except Exception as exc:  # noqa: BLE001
+            return {"error": str(exc)}
+        return {"ok": True, "path": path}
+
+    def pick_report_files(self) -> dict[str, Any]:
+        if self.window is None:
+            return {"error": "The window is not ready."}
+        paths = self.window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            allow_multiple=True,
+            file_types=("PDF files (*.pdf)",),
+        )
+        if not paths:
+            return {"cancelled": True}
+
+        reports = []
+        errors = []
+        for path in paths:
+            name = os.path.basename(path)
+            if not name.lower().endswith(".pdf"):
+                errors.append(f"{name}: Only PDF reports are accepted.")
+                continue
+            try:
+                with open(path, "rb") as handle:
+                    reports.append(
+                        {"filename": name, "text": extract_pdf_text(handle.read(), name)}
+                    )
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{name}: {exc}")
+
+        if not reports:
+            return {"error": errors[0] if errors else "No PDF reports were uploaded."}
+        result = {"files": reports}
+        if errors:
+            result["warning"] = " ".join(errors)
+        return result
+
+    def export_interpretation(self, report: dict[str, Any]) -> dict[str, Any]:
+        if self.window is None:
+            return {"error": "The window is not ready."}
+        if not isinstance(report, dict):
+            return {"error": "No interpretation was provided."}
+
+        sources = [str(name) for name in (report.get("sources") or []) if name]
+        suggested = interpretation_pdf_filename(sources)
+        paths = self.window.create_file_dialog(
+            webview.FileDialog.SAVE,
+            save_filename=suggested,
+            file_types=("PDF files (*.pdf)",),
+        )
+        if not paths:
+            return {"cancelled": True}
+
+        path = paths[0] if isinstance(paths, (list, tuple)) else paths
+        if not str(path).lower().endswith(".pdf"):
+            path = f"{path}.pdf"
+        try:
+            with open(path, "wb") as handle:
+                handle.write(build_interpretation_pdf(report))
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)}
         return {"ok": True, "path": path}

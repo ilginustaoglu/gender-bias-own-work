@@ -12,10 +12,13 @@
         <p class="eyebrow">CSV analysis</p>
         <h1>Answer Round</h1>
       </div>
-      <label class="upload">
-        <input id="file-input" type="file" accept=".csv" multiple />
-        <span>Upload CSV</span>
-      </label>
+      <div class="top-actions">
+        <a class="action" href="{{ url_for('interpret_page') }}">Interpret reports</a>
+        <label class="upload">
+          <input id="file-input" type="file" accept=".csv" multiple />
+          <span>Upload CSV</span>
+        </label>
+      </div>
     </header>
 
     <nav id="file-nav" class="navbar" hidden></nav>
